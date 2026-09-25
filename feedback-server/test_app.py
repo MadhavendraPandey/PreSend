@@ -132,6 +132,41 @@ def test_retries_use_the_same_generated_id():
     assert second.json()["id"] == first.json()["id"]
 
 
+def test_accepts_correct_feedback_without_corrected_labels():
+    response = client.post(
+        "/feedback",
+        json=payload(feedback="correct", corrected_labels=[]),
+    )
+    assert response.status_code == 201
+
+
+def test_accepts_not_sensitive_feedback_corrected_to_public():
+    response = client.post(
+        "/feedback",
+        json=payload(feedback="not_sensitive", corrected_labels=["public"]),
+    )
+    assert response.status_code == 201
+
+
+def test_accepts_wrong_category_with_selected_sensitive_category():
+    response = client.post(
+        "/feedback",
+        json=payload(
+            feedback="wrong_category",
+            corrected_labels=["legal_confidential"],
+        ),
+    )
+    assert response.status_code == 201
+
+
+def test_rejects_wrong_category_without_corrected_labels():
+    response = client.post(
+        "/feedback",
+        json=payload(feedback="wrong_category", corrected_labels=[]),
+    )
+    assert response.status_code == 422
+
+
 def test_rejects_invalid_payloads_before_database_access():
     assert client.post("/feedback", json=payload(text="x" * 5001)).status_code == 422
     assert client.post("/feedback", json=payload(site_url="https://example.test")).status_code == 422

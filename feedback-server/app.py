@@ -17,6 +17,16 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 RATE_LIMIT_PER_MINUTE = 60
+SENSITIVE_CATEGORIES = {
+    "confidential_business",
+    "customer_confidential",
+    "employee_sensitive",
+    "financial_internal",
+    "unreleased_product",
+    "internal_security",
+    "legal_confidential",
+    "proprietary_technical",
+}
 rate_windows: dict[str, deque[float]] = defaultdict(deque)
 rate_lock = threading.Lock()
 rate_salt = os.urandom(32)
@@ -44,7 +54,7 @@ class FeedbackPayload(BaseModel):
     predicted_labels: list[str] = Field(min_length=1, max_length=20)
     predicted_scores: dict[str, float]
     feedback: Literal["correct", "not_sensitive", "wrong_category"]
-    corrected_labels: list[str] = Field(min_length=1, max_length=20)
+    corrected_labels: list[str] = Field(max_length=20)
     model_version: str = Field(min_length=1, max_length=100)
     extension_version: str = Field(min_length=1, max_length=40)
     created_at: datetime
@@ -86,12 +96,18 @@ class FeedbackPayload(BaseModel):
     def validate_feedback_correction(self):
         if set(self.predicted_scores) != set(self.predicted_labels):
             raise ValueError("predicted_scores keys must match predicted_labels")
-        if self.feedback == "correct" and self.corrected_labels != self.predicted_labels:
-            raise ValueError("correct feedback must preserve predicted labels")
+        if self.feedback == "correct" and self.corrected_labels not in (
+            [],
+            self.predicted_labels,
+        ):
+            raise ValueError("correct feedback must omit corrections or preserve predicted labels")
         if self.feedback == "not_sensitive" and self.corrected_labels != ["public"]:
             raise ValueError("not_sensitive feedback must correct to public")
-        if self.feedback == "wrong_category" and not self.corrected_labels:
-            raise ValueError("wrong_category feedback requires corrected labels")
+        if self.feedback == "wrong_category" and (
+            not self.corrected_labels
+            or any(label not in SENSITIVE_CATEGORIES for label in self.corrected_labels)
+        ):
+            raise ValueError("wrong_category feedback requires valid sensitive categories")
         return self
 
 
