@@ -173,7 +173,10 @@ def database_error_code(error: Exception) -> str:
         if sqlstate.startswith("08"):
             return "database_connection_failed"
     message = str(error).lower()
-    if "tenant or user not found" in message or "not associated with any cluster" in message:
+    if (
+        (all(value in message for value in ("tenant", "user", "not", "found")))
+        or "not associated with any cluster" in message
+    ):
         return "database_pooler_identity_failed"
     if any(value in message for value in (
         "password authentication failed",

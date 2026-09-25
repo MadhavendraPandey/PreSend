@@ -274,3 +274,13 @@ def test_supabase_pooler_identity_errors_are_classified_without_details():
     assert response.status_code == 503
     assert response.json()["code"] == "database_pooler_identity_failed"
     assert "project-ref" not in response.text
+
+
+def test_pooler_identity_classification_tolerates_libpq_formatting():
+    module.psycopg.connect.side_effect = psycopg.OperationalError(
+        "connection failed: server reported user not found for tenant project"
+    )
+    response = client.post("/feedback", json=payload())
+    assert response.status_code == 503
+    assert response.json()["code"] == "database_pooler_identity_failed"
+    assert "project" not in response.json()["detail"]
