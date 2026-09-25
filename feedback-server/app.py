@@ -183,7 +183,14 @@ def database_error_code(error: Exception) -> str:
     if any(value in message for value in (
         "could not translate host name",
         "name or service not known",
+        "temporary failure in name resolution",
+        "no such host is known",
+        "nodename nor servname provided",
+        "getaddrinfo failed",
         "network is unreachable",
+        "cannot assign requested address",
+        "no route to host",
+        "unreachable",
         "connection refused",
         "timeout expired",
         "connection timed out",
@@ -192,8 +199,13 @@ def database_error_code(error: Exception) -> str:
     )):
         return "database_connection_failed"
     if isinstance(error, psycopg.OperationalError):
-        hostname = (urlparse(DATABASE_URL).hostname or "").lower()
+        parsed_url = urlparse(DATABASE_URL)
+        hostname = (parsed_url.hostname or "").lower()
         if hostname.endswith(".pooler.supabase.com"):
+            if not parsed_url.username or "." not in parsed_url.username:
+                return "database_pooler_username_invalid"
+            if parsed_url.port not in (5432, 6543):
+                return "database_pooler_port_invalid"
             return "database_pooler_connection_failed"
         if hostname.startswith("db.") and hostname.endswith(".supabase.co"):
             return "database_direct_connection_failed"

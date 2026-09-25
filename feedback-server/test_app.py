@@ -227,6 +227,19 @@ def test_direct_supabase_connection_failures_are_identified_without_host_details
     assert "example" not in response.text
 
 
+def test_pooler_username_shape_is_validated_without_exposing_it():
+    original_url = module.DATABASE_URL
+    module.DATABASE_URL = (
+        "postgresql://postgres:test@aws-0-test.pooler.supabase.com:5432/postgres"
+    )
+    module.psycopg.connect.side_effect = psycopg.OperationalError("opaque failure")
+    response = client.post("/feedback", json=payload())
+    module.DATABASE_URL = original_url
+    assert response.status_code == 503
+    assert response.json()["code"] == "database_pooler_username_invalid"
+    assert "postgres" not in response.text
+
+
 def test_supabase_pooler_identity_errors_are_classified_without_details():
     module.psycopg.connect.side_effect = psycopg.OperationalError(
         "FATAL: Tenant or user not found for postgres.project-ref"
