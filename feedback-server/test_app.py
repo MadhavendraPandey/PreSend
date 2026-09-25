@@ -110,6 +110,11 @@ def test_serializes_valid_payload_for_postgres_jsonb():
     assert response.status_code == 201
     assert len(response.json()["id"]) == 64
     assert module.psycopg.connect.call_count == 2
+    assert connections[0][1] == {
+        "connect_timeout": 10,
+        "sslmode": "require",
+        "prepare_threshold": None,
+    }
 
     schema_sql, schema_params = connections[0][2].executions[0]
     assert "CREATE TABLE IF NOT EXISTS feedback" in schema_sql

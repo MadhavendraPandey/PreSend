@@ -116,7 +116,12 @@ class FeedbackPayload(BaseModel):
 def connect():
     if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL is not configured")
-    return psycopg.connect(DATABASE_URL, connect_timeout=10)
+    return psycopg.connect(
+        DATABASE_URL,
+        connect_timeout=10,
+        sslmode="require",
+        prepare_threshold=None,
+    )
 
 
 def ensure_database() -> None:
