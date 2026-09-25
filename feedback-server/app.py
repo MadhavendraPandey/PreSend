@@ -229,43 +229,6 @@ def database_error_code(error: Exception) -> str:
     return "database_unavailable"
 
 
-def database_error_signals(error: Exception) -> list[str]:
-    allowed = {
-        "address",
-        "authentication",
-        "certificate",
-        "closed",
-        "connection",
-        "database",
-        "endpoint",
-        "failed",
-        "host",
-        "invalid",
-        "missing",
-        "network",
-        "password",
-        "paused",
-        "pooler",
-        "project",
-        "refused",
-        "reset",
-        "role",
-        "sasl",
-        "scram",
-        "server",
-        "ssl",
-        "supplied",
-        "tenant",
-        "timeout",
-        "tls",
-        "unexpectedly",
-        "unreachable",
-        "user",
-    }
-    words = set(re.findall(r"[a-z]+", str(error).lower()))
-    return sorted(words & allowed)
-
-
 configured_origins = [
     origin.strip()
     for origin in os.environ.get("PRESEND_ALLOWED_EXTENSION_ORIGINS", "").split(",")
@@ -320,7 +283,6 @@ def save_feedback(payload: FeedbackPayload, request: Request) -> dict[str, str]:
             content={
                 "detail": "Feedback service unavailable",
                 "code": database_error_code(error),
-                "signals": database_error_signals(error),
             },
         )
     return {"id": feedback_id}
