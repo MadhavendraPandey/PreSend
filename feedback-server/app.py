@@ -1,0 +1,191 @@
+import hashlib
+import json
+import os
+import re
+import threading
+import time
+from collections import defaultdict, deque
+from datetime import datetime
+from typing import Literal
+
+import psycopg
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from psycopg.types.json import Jsonb
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+RATE_LIMIT_PER_MINUTE = 60
+rate_windows: dict[str, deque[float]] = defaultdict(deque)
+rate_lock = threading.Lock()
+rate_salt = os.urandom(32)
+schema_lock = threading.Lock()
+schema_ready = False
+
+CREATE_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS feedback (
+    id text PRIMARY KEY,
+    created_at timestamptz NOT NULL,
+    text text NOT NULL CHECK (char_length(text) <= 5000),
+    predicted_labels jsonb NOT NULL,
+    predicted_scores jsonb NOT NULL,
+    feedback_type text NOT NULL,
+    corrected_labels jsonb NOT NULL,
+    model_version text NOT NULL,
+    extension_version text NOT NULL,
+    review_status text NOT NULL DEFAULT 'pending'
+)
+"""
+
+
+class FeedbackPayload(BaseModel):
+    text: str = Field(min_length=1, max_length=5000)
+    predicted_labels: list[str] = Field(min_length=1, max_length=20)
+    predicted_scores: dict[str, float]
+    feedback: Literal["correct", "not_sensitive", "wrong_category"]
+    corrected_labels: list[str] = Field(min_length=1, max_length=20)
+    model_version: str = Field(min_length=1, max_length=100)
+    extension_version: str = Field(min_length=1, max_length=40)
+    created_at: datetime
+
+    model_config = {"extra": "forbid"}
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("text must not be blank")
+        return value
+
+    @field_validator("predicted_labels", "corrected_labels")
+    @classmethod
+    def validate_labels(cls, labels: list[str]) -> list[str]:
+        if any(not label or len(label) > 80 for label in labels):
+            raise ValueError("labels must contain non-empty strings up to 80 characters")
+        return labels
+
+    @field_validator("predicted_scores")
+    @classmethod
+    def validate_scores(cls, scores: dict[str, float]) -> dict[str, float]:
+        if len(scores) > 20 or any(
+            not label or len(label) > 80 or score < 0 or score > 1
+            for label, score in scores.items()
+        ):
+            raise ValueError("predicted_scores must contain at most 20 values between 0 and 1")
+        return scores
+
+    @field_validator("created_at")
+    @classmethod
+    def validate_created_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            raise ValueError("created_at must include a timezone")
+        return value
+
+    @model_validator(mode="after")
+    def validate_feedback_correction(self):
+        if set(self.predicted_scores) != set(self.predicted_labels):
+            raise ValueError("predicted_scores keys must match predicted_labels")
+        if self.feedback == "correct" and self.corrected_labels != self.predicted_labels:
+            raise ValueError("correct feedback must preserve predicted labels")
+        if self.feedback == "not_sensitive" and self.corrected_labels != ["public"]:
+            raise ValueError("not_sensitive feedback must correct to public")
+        if self.feedback == "wrong_category" and not self.corrected_labels:
+            raise ValueError("wrong_category feedback requires corrected labels")
+        return self
+
+
+def connect():
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL is not configured")
+    return psycopg.connect(DATABASE_URL, connect_timeout=10)
+
+
+def ensure_database() -> None:
+    global schema_ready
+    if schema_ready:
+        return
+    with schema_lock:
+        if schema_ready:
+            return
+        with connect() as connection:
+            connection.execute(CREATE_TABLE_SQL)
+        schema_ready = True
+
+
+def rate_key(client: str) -> str:
+    return hashlib.sha256(rate_salt + client.encode("utf-8")).hexdigest()
+
+
+def check_rate_limit(client: str) -> None:
+    now = time.monotonic()
+    key = rate_key(client)
+    with rate_lock:
+        window = rate_windows[key]
+        while window and now - window[0] >= 60:
+            window.popleft()
+        if len(window) >= RATE_LIMIT_PER_MINUTE:
+            raise HTTPException(status_code=429, detail="Rate limit exceeded")
+        window.append(now)
+
+
+def payload_id(payload: FeedbackPayload) -> str:
+    canonical = json.dumps(
+        payload.model_dump(mode="json"),
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+configured_origins = [
+    origin.strip()
+    for origin in os.environ.get("PRESEND_ALLOWED_EXTENSION_ORIGINS", "").split(",")
+    if re.fullmatch(r"chrome-extension://[a-p]{32}", origin.strip())
+]
+
+app = FastAPI(title="PreSend Feedback", docs_url=None, redoc_url=None)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=configured_origins,
+    allow_credentials=False,
+    allow_methods=["POST"],
+    allow_headers=["Content-Type"],
+)
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.post("/feedback", status_code=201)
+def save_feedback(payload: FeedbackPayload, request: Request) -> dict[str, str]:
+    check_rate_limit(request.client.host if request.client else "unknown")
+    feedback_id = payload_id(payload)
+    try:
+        ensure_database()
+        with connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO feedback (
+                    id, created_at, text, predicted_labels, predicted_scores,
+                    feedback_type, corrected_labels, model_version, extension_version
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO NOTHING
+                """,
+                (
+                    feedback_id,
+                    payload.created_at,
+                    payload.text,
+                    Jsonb(payload.predicted_labels),
+                    Jsonb(payload.predicted_scores),
+                    payload.feedback,
+                    Jsonb(payload.corrected_labels),
+                    payload.model_version,
+                    payload.extension_version,
+                ),
+            )
+    except Exception:
+        raise HTTPException(status_code=503, detail="Feedback service unavailable") from None
+    return {"id": feedback_id}

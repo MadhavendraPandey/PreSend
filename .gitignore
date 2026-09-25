@@ -29,8 +29,6 @@ models/
 Thumbs.db
 
 
-feedback-server/
-render.yaml
 src/
 entrypoints/
 tests/
