@@ -206,7 +206,11 @@ def database_error_code(error: Exception) -> str:
                 return "database_pooler_username_invalid"
             if parsed_url.port not in (5432, 6543):
                 return "database_pooler_port_invalid"
-            return "database_pooler_connection_failed"
+            return (
+                "database_session_pooler_connection_failed"
+                if parsed_url.port == 5432
+                else "database_transaction_pooler_connection_failed"
+            )
         if hostname.startswith("db.") and hostname.endswith(".supabase.co"):
             return "database_direct_connection_failed"
         return "database_operational_error"
