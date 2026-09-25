@@ -194,6 +194,7 @@ def test_database_errors_return_safe_service_error():
     assert response.json() == {
         "detail": "Feedback service unavailable",
         "code": "database_unavailable",
+        "signals": ["password"],
     }
     assert "password" not in response.text
 
@@ -205,6 +206,12 @@ def test_database_error_codes_never_echo_connection_details():
     response = client.post("/feedback", json=payload())
     assert response.status_code == 503
     assert response.json()["code"] == "database_connection_failed"
+    assert response.json()["signals"] == [
+        "connection",
+        "failed",
+        "network",
+        "unreachable",
+    ]
     assert "db.example" not in response.text
 
 
