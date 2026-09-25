@@ -196,7 +196,8 @@ def test_database_errors_return_safe_service_error():
         "code": "database_unavailable",
         "signals": ["password"],
     }
-    assert "password" not in response.text
+    assert "leaked" not in response.text
+    assert "postgres" not in response.text
 
 
 def test_database_error_codes_never_echo_connection_details():
