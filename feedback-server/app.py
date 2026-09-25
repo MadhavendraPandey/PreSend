@@ -180,6 +180,12 @@ def database_error_code(error: Exception) -> str:
         "connection timed out",
     )):
         return "database_connection_failed"
+    if isinstance(error, psycopg.OperationalError):
+        return "database_operational_error"
+    if isinstance(error, psycopg.ProgrammingError):
+        return "database_programming_error"
+    if isinstance(error, psycopg.InterfaceError):
+        return "database_interface_error"
     return "database_unavailable"
 
 

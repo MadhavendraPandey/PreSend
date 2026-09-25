@@ -201,3 +201,13 @@ def test_database_error_codes_never_echo_connection_details():
     assert response.status_code == 503
     assert response.json()["code"] == "database_connection_failed"
     assert "db.example" not in response.text
+
+
+def test_unknown_operational_errors_expose_only_the_exception_category():
+    module.psycopg.connect.side_effect = psycopg.OperationalError(
+        "sensitive database detail"
+    )
+    response = client.post("/feedback", json=payload())
+    assert response.status_code == 503
+    assert response.json()["code"] == "database_operational_error"
+    assert "sensitive" not in response.text
