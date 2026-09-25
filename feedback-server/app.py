@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS feedback (
     review_status text NOT NULL DEFAULT 'pending'
 )
 """
+ENABLE_RLS_SQL = "ALTER TABLE feedback ENABLE ROW LEVEL SECURITY"
 
 
 class FeedbackPayload(BaseModel):
@@ -133,6 +134,7 @@ def ensure_database() -> None:
             return
         with connect() as connection:
             connection.execute(CREATE_TABLE_SQL)
+            connection.execute(ENABLE_RLS_SQL)
         schema_ready = True
 
 

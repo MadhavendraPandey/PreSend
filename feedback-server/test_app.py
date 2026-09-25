@@ -121,6 +121,9 @@ def test_serializes_valid_payload_for_postgres_jsonb():
     assert "created_at timestamptz" in schema_sql
     assert "predicted_labels jsonb" in schema_sql
     assert schema_params is None
+    rls_sql, rls_params = connections[0][2].executions[1]
+    assert rls_sql == "ALTER TABLE feedback ENABLE ROW LEVEL SECURITY"
+    assert rls_params is None
 
     insert_sql, params = connections[1][2].executions[0]
     assert "ON CONFLICT (id) DO NOTHING" in insert_sql
