@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import psycopg
 from fastapi.testclient import TestClient
 
 
@@ -185,5 +186,18 @@ def test_database_errors_return_safe_service_error():
     module.psycopg.connect.side_effect = RuntimeError("postgres password leaked here")
     response = client.post("/feedback", json=payload())
     assert response.status_code == 503
-    assert response.json() == {"detail": "Feedback service unavailable"}
+    assert response.json() == {
+        "detail": "Feedback service unavailable",
+        "code": "database_unavailable",
+    }
     assert "password" not in response.text
+
+
+def test_database_error_codes_never_echo_connection_details():
+    module.psycopg.connect.side_effect = psycopg.OperationalError(
+        "connection to db.example failed: network is unreachable"
+    )
+    response = client.post("/feedback", json=payload())
+    assert response.status_code == 503
+    assert response.json()["code"] == "database_connection_failed"
+    assert "db.example" not in response.text

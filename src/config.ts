@@ -1,4 +1,4 @@
-export const FEEDBACK_BACKEND_URL = 'https://feedback.presend.app/feedback';
+export const FEEDBACK_BACKEND_URL = 'https://presend-feedback.onrender.com/feedback';
 
 export const CONFIG = {
   typingScanDelayMs: 1_500,

@@ -10,6 +10,7 @@ from typing import Literal
 
 import psycopg
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -154,6 +155,34 @@ def payload_id(payload: FeedbackPayload) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def database_error_code(error: Exception) -> str:
+    if isinstance(error, RuntimeError) and not DATABASE_URL:
+        return "database_configuration_missing"
+    sqlstate = getattr(error, "sqlstate", None)
+    if isinstance(sqlstate, str):
+        if sqlstate.startswith("28"):
+            return "database_authentication_failed"
+        if sqlstate == "42501":
+            return "database_permission_denied"
+        if sqlstate.startswith("08"):
+            return "database_connection_failed"
+    message = str(error).lower()
+    if "password authentication failed" in message:
+        return "database_authentication_failed"
+    if "ssl" in message or "tls" in message or "certificate" in message:
+        return "database_tls_failed"
+    if any(value in message for value in (
+        "could not translate host name",
+        "name or service not known",
+        "network is unreachable",
+        "connection refused",
+        "timeout expired",
+        "connection timed out",
+    )):
+        return "database_connection_failed"
+    return "database_unavailable"
+
+
 configured_origins = [
     origin.strip()
     for origin in os.environ.get("PRESEND_ALLOWED_EXTENSION_ORIGINS", "").split(",")
@@ -202,6 +231,12 @@ def save_feedback(payload: FeedbackPayload, request: Request) -> dict[str, str]:
                     payload.extension_version,
                 ),
             )
-    except Exception:
-        raise HTTPException(status_code=503, detail="Feedback service unavailable") from None
+    except Exception as error:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": "Feedback service unavailable",
+                "code": database_error_code(error),
+            },
+        )
     return {"id": feedback_id}
