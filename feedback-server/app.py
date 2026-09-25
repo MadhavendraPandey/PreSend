@@ -167,8 +167,16 @@ def database_error_code(error: Exception) -> str:
         if sqlstate.startswith("08"):
             return "database_connection_failed"
     message = str(error).lower()
-    if "password authentication failed" in message:
+    if "tenant or user not found" in message or "not associated with any cluster" in message:
+        return "database_pooler_identity_failed"
+    if any(value in message for value in (
+        "password authentication failed",
+        "authentication failed",
+        "invalid authorization specification",
+    )):
         return "database_authentication_failed"
+    if "max client connections reached" in message or "max clients reached" in message:
+        return "database_capacity_reached"
     if "ssl" in message or "tls" in message or "certificate" in message:
         return "database_tls_failed"
     if any(value in message for value in (
@@ -178,6 +186,8 @@ def database_error_code(error: Exception) -> str:
         "connection refused",
         "timeout expired",
         "connection timed out",
+        "server closed the connection unexpectedly",
+        "connection reset by peer",
     )):
         return "database_connection_failed"
     if isinstance(error, psycopg.OperationalError):

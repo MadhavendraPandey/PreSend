@@ -211,3 +211,13 @@ def test_unknown_operational_errors_expose_only_the_exception_category():
     assert response.status_code == 503
     assert response.json()["code"] == "database_operational_error"
     assert "sensitive" not in response.text
+
+
+def test_supabase_pooler_identity_errors_are_classified_without_details():
+    module.psycopg.connect.side_effect = psycopg.OperationalError(
+        "FATAL: Tenant or user not found for postgres.project-ref"
+    )
+    response = client.post("/feedback", json=payload())
+    assert response.status_code == 503
+    assert response.json()["code"] == "database_pooler_identity_failed"
+    assert "project-ref" not in response.text
