@@ -7,6 +7,7 @@ import time
 from collections import defaultdict, deque
 from datetime import datetime
 from typing import Literal
+from urllib.parse import urlparse
 
 import psycopg
 from fastapi import FastAPI, HTTPException, Request
@@ -191,6 +192,11 @@ def database_error_code(error: Exception) -> str:
     )):
         return "database_connection_failed"
     if isinstance(error, psycopg.OperationalError):
+        hostname = (urlparse(DATABASE_URL).hostname or "").lower()
+        if hostname.endswith(".pooler.supabase.com"):
+            return "database_pooler_connection_failed"
+        if hostname.startswith("db.") and hostname.endswith(".supabase.co"):
+            return "database_direct_connection_failed"
         return "database_operational_error"
     if isinstance(error, psycopg.ProgrammingError):
         return "database_programming_error"

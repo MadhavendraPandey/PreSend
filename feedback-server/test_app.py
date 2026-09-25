@@ -204,13 +204,27 @@ def test_database_error_codes_never_echo_connection_details():
 
 
 def test_unknown_operational_errors_expose_only_the_exception_category():
+    original_url = module.DATABASE_URL
+    module.DATABASE_URL = "postgresql://test:test@localhost:5432/presend"
     module.psycopg.connect.side_effect = psycopg.OperationalError(
         "sensitive database detail"
     )
     response = client.post("/feedback", json=payload())
+    module.DATABASE_URL = original_url
     assert response.status_code == 503
     assert response.json()["code"] == "database_operational_error"
     assert "sensitive" not in response.text
+
+
+def test_direct_supabase_connection_failures_are_identified_without_host_details():
+    original_url = module.DATABASE_URL
+    module.DATABASE_URL = "postgresql://test:test@db.example.supabase.co:5432/postgres"
+    module.psycopg.connect.side_effect = psycopg.OperationalError("opaque failure")
+    response = client.post("/feedback", json=payload())
+    module.DATABASE_URL = original_url
+    assert response.status_code == 503
+    assert response.json()["code"] == "database_direct_connection_failed"
+    assert "example" not in response.text
 
 
 def test_supabase_pooler_identity_errors_are_classified_without_details():
