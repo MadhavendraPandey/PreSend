@@ -1,0 +1,61 @@
+# dependencies / builds
+node_modules/
+.output/
+dist/
+coverage/
+
+# secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# databases
+*.db
+*.sqlite
+*.sqlite3
+
+# local ML development artifacts
+Data/
+models/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+
+
+feedback-server/
+render.yaml
+src/
+entrypoints/
+tests/
+public/semantic/
+
+.wxt/
+
+.env
+.env.*
+*.db
+*.sqlite
+*.sqlite3
+__pycache__/
+.venv/
+venv/
+node_modules/
+.output/
+dist/
+.wxt/
+Data/
+models/
+
+scripts/audit-datasets.mjs
+scripts/train-*.py
+scripts/recover-*.py
+scripts/finetune-*.py
+scripts/export-*.py
+scripts/compare-*.py

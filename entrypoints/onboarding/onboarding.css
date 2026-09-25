@@ -1,0 +1,53 @@
+:root {
+  color-scheme: light dark;
+  --primary: #26313a;
+  --secondary: #3f7896;
+  --tertiary: #a64e46;
+  --surface: #eceeec;
+  --panel: #f4f3ef;
+  --panel-muted: #e8e9e6;
+  --border: #c5cbce;
+  --text: var(--primary);
+  --text-muted: #626d75;
+  font: 13px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--text);
+  background: var(--surface);
+}
+
+* { box-sizing: border-box; }
+body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 20px; }
+main { width: min(500px, 100%); padding: 28px 30px; border: 1px solid var(--border); border-radius: 4px; background: var(--panel); text-align: left; }
+img { border-radius: 3px; }
+.eyebrow { margin: 16px 0 6px; color: var(--secondary); font-size: 11px; font-weight: 700; letter-spacing: .06em; }
+h1 { margin: 0; font-size: 24px; font-weight: 700; line-height: 1.25; }
+.body-copy { min-height: 70px; margin: 12px 0; color: var(--text-muted); font-size: 14px; line-height: 1.55; }
+ul { margin: -2px 0 16px; padding-left: 19px; color: var(--primary); font-size: 14px; line-height: 1.55; }
+.progress { display: flex; justify-content: flex-start; gap: 5px; margin: 18px 0; }
+.progress span { width: 7px; height: 5px; border-radius: 2px; background: var(--border); }
+.progress span.active { width: 18px; background: var(--secondary); }
+.actions { display: flex; justify-content: flex-start; gap: 8px; }
+button { min-width: 104px; min-height: 36px; padding: 7px 13px; border: 1px solid var(--border); border-radius: 3px; font: 650 13px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--secondary); outline-offset: 2px; }
+.primary { color: var(--panel); border-color: var(--secondary); background: var(--secondary); }
+.secondary { color: var(--primary); background: transparent; }
+.account-note { margin: 15px 0 0; color: var(--text-muted); font-size: 12px; }
+.error { color: var(--tertiary); font-size: 13px; }
+
+@media (max-width: 520px) {
+  body { padding: 10px; }
+  main { padding: 23px 18px; }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary: #d9dee1;
+    --secondary: #78a8bf;
+    --tertiary: #d17a70;
+    --surface: #171d22;
+    --panel: #20272d;
+    --panel-muted: #272f36;
+    --border: #46515a;
+    --text: #e2e6e8;
+    --text-muted: #a8b0b5;
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "presend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "zip": "wxt zip",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3",
+    "onnxruntime-web": "^1.23.2",
+    "pdfjs-dist": "^6.3.289",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@types/react": "^19.1.16",
+    "@types/react-dom": "^19.1.9",
+    "@wxt-dev/module-react": "^1.1.5",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.9.2",
+    "vitest": "^5.0.1",
+    "wxt": "^0.21.4"
+  }
+}
